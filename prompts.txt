@@ -1,0 +1,3 @@
+Please generate three questions for the customer having the following \n\n### Hedis Measure: Immunization
+Please write an sms informing customer about Immunization
+Please write an email for informing customer about Immunization

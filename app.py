@@ -21,7 +21,7 @@ from langchain.prompts import PromptTemplate
 import numpy as np
 
 
-is_ivr = True
+is_ivr = False
 
 app = Flask(__name__)
 CORS(app)
@@ -46,145 +46,60 @@ class NewTokenHandler(BaseCallbackHandler):
         self.num_tokens_generated += 1
         print(f"{token}", end="", flush=True)
 
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=False,
-    bnb_4bit_use_double_quant=False
-    # bnb_4bit_quant_type="nf4",
-    # bnb_4bit_compute_dtype=torch.bfloat16
-)
-
 def load_sms_model():
-    model_name = f'{dirname(__file__)}\\smsmodel'
-    peft_model_id = f'{dirname(__file__)}\\smsmodel'
-    config = PeftConfig.from_pretrained(peft_model_id)
-    model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, device_map='auto')
-    # model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, quantization_config=bnb_config, device_map='auto')
-    tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-    # Load the Lora model
-    model = PeftModel.from_pretrained(model, peft_model_id)
-    return model, tokenizer
-
-# def load_ivr_model():
-#     model_name = f'{dirname(__file__)}\\ivrmodel'
-#     peft_model_id = f'{dirname(__file__)}\\ivrmodel'
-#     config = PeftConfig.from_pretrained(peft_model_id)
-
-#     # with init_empty_weights():
-#     #     model_temp = AutoModelForCausalLM.from_config(config)
-
-#     # device_map = infer_auto_device_map(model_temp)
-#     # device_map["model.decoder.layers.37"] = "disk"
-
-#     # base_model.model.model.norm, base_model.model.lm_head, base_model.model.model.layers.
-
-#     model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, torch_dtype=torch.float16,device_map="auto",offload_folder='offload/',low_cpu_mem_usage=True, offload_state_dict = True)
-#     model.config.use_cache = False
-    
-#     # model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, quantization_config=bnb_config, device_map='auto')
-#     tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-#     # Load the Lora model
-#     model = PeftModel.from_pretrained(model, peft_model_id, offload_folder = "offload/")
-#     model = model.merge_and_unload()
-
-#     model.save_pretrained('final_ivr_model')
-
-#     return model, tokenizer
-
-
-def load_ivr_model():
-    llm = CTransformers(
-        model='quantizedmodels/ggml-ivr-model-fp16.bin', # Location of downloaded GGML model
+    sms = CTransformers(
+        model='quantizedmodels/ggml-sms-model-q8_0.bin', # Location of downloaded GGML model
         model_type='llama', # Model type Llama
-        stream=True,
+        stream=False,
         callbacks=[NewTokenHandler()],
         config={
-            'max_new_tokens': 256,
+            'max_new_tokens': 512,
             'temperature': 0.01,
             'stop': "<0x0A>"
         }
     )
-    return llm
+    return sms
+
+def load_ivr_model():
+    ivr = CTransformers(
+        model='quantizedmodels/ggml-ivr-model-fp16.bin', # Location of downloaded GGML model
+        model_type='llama', # Model type Llama
+        stream=False,
+        callbacks=[NewTokenHandler()],
+        config={
+            'max_new_tokens': 512,
+            'temperature': 0.01,
+            'stop': "<0x0A>"
+        }
+    )
+    return ivr
 
 if is_ivr:
     ivr_model = load_ivr_model()
 else:
-    sms_model, sms_tokenizer = load_sms_model()
-
-
+    sms_model = load_sms_model()
 
 # helper functions
 
-# def generate_sms(hedis_measure, from_age, to_age, response_type, prompt):
-#     # load model
-#     # model_name = f'{dirname(__file__)}\\smsmodel'
-#     # peft_model_id = f'{dirname(__file__)}\\smsmodel'
-#     # config = PeftConfig.from_pretrained(peft_model_id)
-#     # model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, load_in_4bit=True, device_map='auto')
-#     # tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-#     # # Load the Lora model
-#     # model = PeftModel.from_pretrained(model, peft_model_id)
-#     batch = sms_tokenizer(prompt, return_tensors='pt')
-#     # batch = batch.to(torch.device('cuda'))
-#     # with torch.cuda.amp.autocast():
-#     output = sms_model.generate(**batch, max_new_tokens=360)
-
-#     res = sms_tokenizer.decode(output[0])
-#     res = "<br />".join(res.split("\n"))
-#     res = res.replace('<s>', '')
-#     res = res.replace('</s>', '')
-#     res = res.split('.', 1)[-1]
-
-#     if '[/INST]'  in res:
-#         res = res.split('[/INST]')[0]
-#     elif '[/]' in res:
-#         res = res.split('[/]')[0]
-#     else:
-#         res = res
-
-#     prepared_response = { 
-#         "type" : response_type, 
-#         "data" : res, 
-#     } 
-#     # del model
-#     # del tokenizer
-#     # gc.collect()
-#     # torch.cuda.empty_cache() 
-#     return prepared_response
-  
-
-# def generate_email(hedis_measure, from_age, to_age, response_type, prompt):
-#     # load model
-#     # model_name = f'{dirname(__file__)}\\smsmodel'
-#     # peft_model_id = f'{dirname(__file__)}\\smsmodel'
-#     # config = PeftConfig.from_pretrained(peft_model_id)
-#     # model = AutoModelForCausalLM.from_pretrained(config.base_model_name_or_path, return_dict=True, load_in_4bit=True, device_map='auto')
-#     # tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-#     # # Load the Lora model
-#     # model = PeftModel.from_pretrained(model, peft_model_id)
-#     batch = sms_tokenizer(prompt, return_tensors='pt')
-#     # batch = batch.to(torch.device('cuda'))
-#     # with torch.cuda.amp.autocast():
-#     output = sms_model.generate(**batch, max_new_tokens=360)
-#     res = sms_tokenizer.decode(output[0])
-#     res = "<br />".join(res.split("\n"))
-#     res = res.replace('<s>', '')
-#     res = res.replace('</s>', '')
-#     res = res.split('.', 1)[-1]
-
-#     prepared_response = { 
-#         "type" : response_type, 
-#         "data" : res, 
-#     } 
-#     # del model
-#     # del tokenizer
-#     gc.collect()
-#     # torch.cuda.empty_cache() 
-#     return prepared_response
-
 def generate_ivr(hedis_measure, response_type, prompt):
-    
     prompt = PromptTemplate.from_template(prompt)
     chain = LLMChain(llm=ivr_model, prompt=prompt)
+
+    result = chain({'query': prompt}, return_only_outputs=True)
+
+    return result
+
+def generate_sms(hedis_measure, from_age, to_age, response_type, prompt):
+    prompt = PromptTemplate.from_template(prompt)
+    chain = LLMChain(llm=sms_model, prompt=prompt)
+
+    result = chain({'query': prompt}, return_only_outputs=True)
+
+    return result
+
+def generate_email(hedis_measure, from_age, to_age, response_type, prompt):
+    prompt = PromptTemplate.from_template(prompt)
+    chain = LLMChain(llm=sms_model, prompt=prompt)
 
     result = chain({'query': prompt}, return_only_outputs=True)
 
@@ -271,11 +186,21 @@ def generate():
         response_type = request.args.get('type')
 
         if response_type == 'sms':
-            prompt = f'Please write a sms for informing customer about {hedis_measure} whose  age From {from_age} To {to_age}'
-            # data = generate_sms(hedis_measure, from_age, to_age, response_type, prompt)
+            prompt = f'[INST] Generate one sms informing customer about {hedis_measure}. Age group: {from_age}-{to_age} [/INST] '
+            data = generate_sms(hedis_measure, from_age, to_age, response_type, prompt)
+            data = [{
+                'data': data,
+                'data_array': []
+            }]
+
         elif response_type == 'email':
-            prompt = f'Please write a email for informing customer about {hedis_measure} whose  age From {from_age} To {to_age}'
-            # data = generate_email(hedis_measure, from_age, to_age, response_type, prompt)
+            prompt = f'[INST] Generate an email for informing customer about {hedis_measure}. Age group: {from_age}-{to_age} [/INST]'
+            data = generate_email(hedis_measure, from_age, to_age, response_type, prompt)
+            data = [{
+                'data': data,
+                'data_array': []
+            }]
+
         else:
             prompt = f'Please generate five questions for the customer having the following \n\n Hedis Measure:\n{hedis_measure}\n'
             data = generate_ivr(hedis_measure, response_type, prompt)

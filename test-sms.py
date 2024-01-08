@@ -109,7 +109,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run LLM')
     parser.add_argument('--prompt', type=str, required=True)
-    parser.add_argument('--model', type=str, default='quantizedmodels/ggml-ivr-model-fp16.bin')
+    parser.add_argument('--model', type=str, default='quantizedmodels/ggml-sms-model-q8_0.bin')
     parser.add_argument('--model_type', type=str, default='llama')
     parser.add_argument('--input_file', type=str, default='')
     parser.add_argument('--output_file', type=str, default='')

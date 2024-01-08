@@ -1,3 +1,16 @@
 1. Run: python merge.py smsmodel/ output_sms/ 
 2. Run: python llma/llama.cpp/convert.py ./output_sms --outtype fp16
-3. Build with Cmake
+3:
+git clone https://github.com/strutive07/llama.cpp.git
+cd llama.cpp
+cmake .
+cmake --build . --config Release
+
+4: Copy ggml-model-fp16.gguf to bin/Release directory of llama.cpp
+5: cd llama.cpp/bin/Release/
+6: Run: quantize ggml-model-f16.gguf ggml-sms-model-q8_0.bin q8_0
+7: Copy ggml-sms-model-q8_0.bin to the folder quantizedmodels
+8: Run the flask application
+
+To only test the application: 
+python test-email.py --prompt template.txt
