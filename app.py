@@ -21,10 +21,21 @@ from langchain.prompts import PromptTemplate
 import numpy as np
 
 
-is_ivr = False
 
 app = Flask(__name__)
 CORS(app)
+
+sms_model=None
+ivr_model=None
+def load_correct_model(is_ivr=False):
+    global sms_model,ivr_model
+    if is_ivr:
+        print('Loading IVR Model')
+        ivr_model = load_ivr_model()
+    else:
+        print('Loading SMS and Email Model')
+        sms_model = load_sms_model()
+
 
 
 class NewTokenHandler(BaseCallbackHandler):
@@ -74,10 +85,6 @@ def load_ivr_model():
     )
     return ivr
 
-if is_ivr:
-    ivr_model = load_ivr_model()
-else:
-    sms_model = load_sms_model()
 
 # helper functions
 
@@ -86,23 +93,22 @@ def generate_ivr(hedis_measure, response_type, prompt):
     chain = LLMChain(llm=ivr_model, prompt=prompt)
 
     result = chain({'query': prompt}, return_only_outputs=True)
+    # result =  chain.run({})
+
 
     return result
 
 def generate_sms(hedis_measure, from_age, to_age, response_type, prompt):
+    print('generate_sms called')
     prompt = PromptTemplate.from_template(prompt)
     chain = LLMChain(llm=sms_model, prompt=prompt)
-
-    result = chain({'query': prompt}, return_only_outputs=True)
-
+    result =  chain.run({})
     return result
 
 def generate_email(hedis_measure, from_age, to_age, response_type, prompt):
     prompt = PromptTemplate.from_template(prompt)
     chain = LLMChain(llm=sms_model, prompt=prompt)
-
-    result = chain({'query': prompt}, return_only_outputs=True)
-
+    result =  chain.run({})
     return result
 
 
@@ -186,7 +192,10 @@ def generate():
         response_type = request.args.get('type')
 
         if response_type == 'sms':
-            prompt = f'[INST] Generate one sms informing customer about {hedis_measure}. Age group: {from_age}-{to_age} [/INST] '
+            load_correct_model()
+            # prompt = f'[INST] Generate one sms informing customer about {hedis_measure}. Age group: {from_age}-{to_age} [/INST] '
+            prompt = f'[INST] Generate one sms body only informing customer about {hedis_measure} for ages between {from_age} to {to_age} [/INST] '
+
             data = generate_sms(hedis_measure, from_age, to_age, response_type, prompt)
             data = [{
                 'data': data,
@@ -194,6 +203,7 @@ def generate():
             }]
 
         elif response_type == 'email':
+            load_correct_model()
             prompt = f'[INST] Generate an email for informing customer about {hedis_measure}. Age group: {from_age}-{to_age} [/INST]'
             data = generate_email(hedis_measure, from_age, to_age, response_type, prompt)
             data = [{
@@ -202,7 +212,8 @@ def generate():
             }]
 
         else:
-            prompt = f'Please generate five questions for the customer having the following \n\n Hedis Measure:\n{hedis_measure}\n'
+            load_correct_model(is_ivr=True)
+            prompt = f'Please generate three questions for the customer having the following \n\n Hedis Measure:\n{hedis_measure}\n'
             data = generate_ivr(hedis_measure, response_type, prompt)
             res = data.values()
             d = list(res)
@@ -226,6 +237,7 @@ def reset():
 def translate():
     if request.method == 'GET':
         text_to_translate = request.args.get('text')
+        print('Text to translate is ',text_to_translate)
         # Create a Translator object
         translator = Translator()
         # Translate the text to Spanish
